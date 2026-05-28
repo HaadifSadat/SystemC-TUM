@@ -1,0 +1,23 @@
+# Build artifacts
+*.x
+.build/
+**/.build/
+singleFile.txt
+ 
+# VCD trace files (generated during simulation)
+*.vcd
+ 
+# Object and dependency files
+*.o
+*.d
+ 
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+ 
+# OS files
+.DS_Store
+Thumbs.db
