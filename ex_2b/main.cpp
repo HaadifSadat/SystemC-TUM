@@ -12,6 +12,7 @@ int sc_main(int argc, char *argv[]) {
 	// fill in the required commands to instantiate and connect producer, fifo,
 	// and consumer
 
+	
 	// ####################### UP TO HERE ####################### //
 
 	// ############# COMPLETE THE FOLLOWING SECTION ############# //

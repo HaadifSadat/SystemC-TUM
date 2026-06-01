@@ -2,7 +2,7 @@
 *.x
 .build/
 **/.build/
-singleFile.txt
+*.txt
  
 # VCD trace files (generated during simulation)
 *.vcd
