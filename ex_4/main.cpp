@@ -7,7 +7,13 @@ int sc_main(int argc, char *argv[]) {
 
 	// ############# COMPLETE THE FOLLOWING SECTION ############# //
 	// instances of the modules
+	producer prod("producer");
+	consumer cons("consumer");
+	fifo_3 fifo("fifo");
 
+	// bind sockets
+	prod.prod2fifo_socket.bind(fifo.fifo2prod_socket);
+	cons.consum2fifo_socket.bind(fifo.fifo2consum_socket);
 	// ####################### UP TO HERE ####################### //
 
 	// simulation duration may be modified by command line parameter

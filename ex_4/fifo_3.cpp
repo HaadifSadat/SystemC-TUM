@@ -18,7 +18,15 @@ fifo_3::fifo_3(sc_module_name name, unsigned int fifo_size) :
 {
 	// ############# COMPLETE THE FOLLOWING SECTION ############# //
 	// register nb_transport_fw function with sockets
+	fifo2prod_socket.register_nb_transport_fw(
+    this,
+    &fifo_3::nb_transport_fw
+	);
 
+	fifo2consum_socket.register_nb_transport_fw(
+    this,
+    &fifo_3::nb_transport_fw
+	);
 	// ####################### UP TO HERE ####################### //
 
 	// register the read and write processes with the simulation kernel
@@ -37,88 +45,156 @@ fifo_3::fifo_3(sc_module_name name, unsigned int fifo_size) :
 
 void fifo_3::read_fifo() {
 
-	unsigned int len;	// amount of data read
-	unsigned char* ptr;	// pointer where to put data
+    unsigned int len;
+    unsigned char* ptr;
 
-	tlm_sync_enum tlm_resp;
-	tlm_response_status status;
-	sc_time delay;
-	tlm_phase phase;
-	tlm_generic_payload *payload;
+    tlm_sync_enum tlm_resp;
+    tlm_response_status status;
+    sc_time delay;
+    tlm_phase phase;
+    tlm_generic_payload *payload;
 
-	while(true) {
-		// wait for read to be triggered from read payload event queue
-		wait();
+    while(true) {
 
-		// ############# COMPLETE THE FOLLOWING SECTION ############# //
-		// get the transaction out of the read payload event queue and get
-		// information from generic payload
+        wait();
 
-		// ####################### UP TO HERE ####################### //
+        // Get transaction
+        payload = r_peq.get_next_transaction();
 
-		if(fill_level < len) {	// not enough data to read
-			len = fill_level;	// none or less data will be read
-			status = TLM_BURST_ERROR_RESPONSE;
-		}
-		else
-			status = TLM_OK_RESPONSE;
+        ptr = payload->get_data_ptr();
+        len = payload->get_data_length();
 
-		// ############# COMPLETE THE FOLLOWING SECTION ############# //
-		// handle write
+        // Check FIFO content
+        if(fill_level < len) {
+            len = fill_level;
+            status = TLM_BURST_ERROR_RESPONSE;
+        }
+        else {
+            status = TLM_OK_RESPONSE;
+        }
 
-		// ####################### UP TO HERE ####################### //
+        // Read from circular FIFO
+        if(rd_ptr + len <= fifo_size) {
+            memcpy(ptr, fifo_data + rd_ptr, len);
+        }
+        else {
+            unsigned int first = fifo_size - rd_ptr;
+            unsigned int second = len - first;
 
-		if(fifo_size <= 50)
-			output_fifo_status();
+            memcpy(ptr, fifo_data + rd_ptr, first);
+            memcpy(ptr + first, fifo_data, second);
+        }
 
-		// ############# COMPLETE THE FOLLOWING SECTION ############# //
-		// prepare backward call, call nb_transport_bw, and evaluate response
+        cout << std::setw(9) << sc_time_stamp()
+             << ": '" << name()
+             << "'\tread " << len
+             << " byte(s) from address "
+             << rd_ptr << endl;
 
-		// ####################### UP TO HERE ####################### //
-	}
+        rd_ptr = (rd_ptr + len) % fifo_size;
+        fill_level -= len;
+
+        payload->set_data_length(len);
+        payload->set_response_status(status);
+
+        if(fifo_size <= 50)
+            output_fifo_status();
+
+        // Backward path
+        delay = SC_ZERO_TIME;
+        phase = BEGIN_RESP;
+
+        tlm_resp =
+            fifo2consum_socket->nb_transport_bw(
+                *payload,
+                phase,
+                delay
+            );
+
+        if(tlm_resp != TLM_COMPLETED ||
+           phase != END_RESP)
+        {
+            cout << "Protocol error!" << endl;
+            exit(1);
+        }
+    }
 }
 
 void fifo_3::write_fifo() {
 
-	unsigned int len;	// amount of data written
-	unsigned char* ptr;	// pointer where to put data
+    unsigned int len;
+    unsigned char* ptr;
 
-	tlm_sync_enum tlm_resp;
-	tlm_response_status status;
-	sc_time delay;
-	tlm_phase phase;
-	tlm_generic_payload *payload;
+    tlm_sync_enum tlm_resp;
+    tlm_response_status status;
+    sc_time delay;
+    tlm_phase phase;
+    tlm_generic_payload *payload;
 
-	while(true) {
-		// wait for write to be triggered from write payload event queue
-		wait();
+    while(true) {
 
-		// ############# COMPLETE THE FOLLOWING SECTION ############# //
-		// get the transaction out of the write payload event queue and get
-		// information from generic payload
+        wait();
 
-		// ####################### UP TO HERE ####################### //
+        // Get transaction
+        payload = w_peq.get_next_transaction();
 
-		if(fill_level + (int)len > fifo_size) { // not enough space for all data
-			len = fifo_size - fill_level;		// none or less data will be written
-			status = TLM_BURST_ERROR_RESPONSE;
-		}
-		else
-			status = TLM_OK_RESPONSE;
+        ptr = payload->get_data_ptr();
+        len = payload->get_data_length();
 
-		// ############# COMPLETE THE FOLLOWING SECTION ############# //
-		// handle write
+        // Check FIFO space
+        if(fill_level + (int)len > fifo_size) {
+            len = fifo_size - fill_level;
+            status = TLM_BURST_ERROR_RESPONSE;
+        }
+        else {
+            status = TLM_OK_RESPONSE;
+        }
 
-		// ####################### UP TO HERE ####################### //
+        // Write into circular FIFO
+        if(wr_ptr + len <= fifo_size) {
+            memcpy(fifo_data + wr_ptr, ptr, len);
+        }
+        else {
+            unsigned int first = fifo_size - wr_ptr;
+            unsigned int second = len - first;
 
-		if(fifo_size <= 50)
-			output_fifo_status();
+            memcpy(fifo_data + wr_ptr, ptr, first);
+            memcpy(fifo_data, ptr + first, second);
+        }
 
-		// ############# COMPLETE THE FOLLOWING SECTION ############# //
-		// prepare backward call, call nb_transport_bw, and evaluate response
+        cout << std::setw(9) << sc_time_stamp()
+             << ": '" << name()
+             << "'\twrote " << len
+             << " byte(s) at address "
+             << wr_ptr << endl;
 
-		// ####################### UP TO HERE ####################### //
-	}
+        wr_ptr = (wr_ptr + len) % fifo_size;
+        fill_level += len;
+
+        payload->set_data_length(len);
+        payload->set_response_status(status);
+
+        if(fifo_size <= 50)
+            output_fifo_status();
+
+        // Backward path
+        delay = SC_ZERO_TIME;
+        phase = BEGIN_RESP;
+
+        tlm_resp =
+            fifo2prod_socket->nb_transport_bw(
+                *payload,
+                phase,
+                delay
+            );
+
+        if(tlm_resp != TLM_COMPLETED ||
+           phase != END_RESP)
+        {
+            cout << "Protocol error!" << endl;
+            exit(1);
+        }
+    }
 }
 
 // nb_transport_fw, implementation of fw calls from initiators
@@ -138,7 +214,11 @@ tlm_sync_enum fifo_3::nb_transport_fw(
 
 	// ############# COMPLETE THE FOLLOWING SECTION ############# //
 	// determine operation and how much data is involved
+	tlm_command cmd;
+    unsigned int len;
 
+    cmd = payload.get_command();
+    len = payload.get_data_length();
 	// ####################### UP TO HERE ####################### //
 
 	if(cmd == TLM_WRITE_COMMAND) {
@@ -163,7 +243,8 @@ tlm_sync_enum fifo_3::nb_transport_fw(
 
 	// ############# COMPLETE THE FOLLOWING SECTION ############# //
 	// finish the first phase of the transaction
-
+	phase = END_REQ;
+	return TLM_UPDATED;	
 	// ####################### UP TO HERE ####################### //
 }
 

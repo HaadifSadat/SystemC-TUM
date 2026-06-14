@@ -11,50 +11,96 @@ fifo_2::fifo_2(sc_module_name name, unsigned int fifo_size) : fifo_size(fifo_siz
 }
 
 bool fifo_2::write_fifo(unsigned char *data, unsigned int &count) {
+
 	bool result = false;
+	unsigned int len;
+	unsigned char *ptr = data;
 
-	unsigned int len; // amount of data written
-	unsigned char *ptr; // pointer where to put data
-	ptr = data;
-	sc_time delay;
-
-	if(fill_level + (int)count > fifo_size) // not enough space for all data
-		len = fifo_size - fill_level; 		// none or less data will be written
+	if(fill_level + count > fifo_size) {
+		len = fifo_size - fill_level;
+	}
 	else {
 		len = count;
 		result = true;
 	}
 
-	// ############# COMPLETE THE FOLLOWING SECTION ############# //
-	// complete process
+	// Copy data into circular buffer
+	if(wr_ptr + len <= fifo_size) {
+		memcpy(fifo_data + wr_ptr, ptr, len);
+	}
+	else {
+		unsigned int first = fifo_size - wr_ptr;
+		unsigned int second = len - first;
 
-	// ####################### UP TO HERE ####################### //
+		memcpy(fifo_data + wr_ptr, ptr, first);
+		memcpy(fifo_data, ptr + first, second);
+	}
+
+	// Transaction delay
+	wait(len * 100, SC_NS);
+
+	// Debug output
+	cout << std::setw(9) << sc_time_stamp()
+		 << ": '" << name()
+		 << "'\twrote " << len
+		 << " byte(s) at address "
+		 << wr_ptr << endl;
+
+	// Update FIFO state
+	wr_ptr = (wr_ptr + len) % fifo_size;
+	fill_level += len;
+	count = len;
+
 	if(fifo_size <= 50)
 		output_fifo_status();
+
 	return result;
 }
 
 bool fifo_2::read_fifo(unsigned char *data, unsigned int &count) {
 	bool result = false;
 
-	unsigned int len;	// amount of data read
-	unsigned char *ptr;	// pointer where to put data
-	ptr = data;
-	sc_time delay;
+	unsigned int len;
+	unsigned char *ptr = data;
 
-	if(fill_level < count)	// not enough data to read
-		len = fill_level;	// none or less data will be read
+	if(fill_level < count) {
+		len = fill_level;
+	}
 	else {
 		len = count;
 		result = true;
 	}
 
-	// ############# COMPLETE THE FOLLOWING SECTION ############# //
-	// complete process
+	// Copy data from circular buffer
+	if(rd_ptr + len <= fifo_size) {
+		memcpy(ptr, fifo_data + rd_ptr, len);
+	}
+	else {
+		unsigned int first = fifo_size - rd_ptr;
+		unsigned int second = len - first;
 
-	// ####################### UP TO HERE ####################### //
+		memcpy(ptr, fifo_data + rd_ptr, first);
+		memcpy(ptr + first, fifo_data, second);
+	}
+
+	// Transaction delay
+	wait(len * 100, SC_NS);
+
+	// Debug output
+	cout << std::setw(9) << sc_time_stamp()
+		 << ": '" << name()
+		 << "'\tread " << len
+		 << " byte(s) from address "
+		 << rd_ptr << endl;
+
+	// Update FIFO state
+	rd_ptr = (rd_ptr + len) % fifo_size;
+	fill_level -= len;
+	count = len;
+
 	if(fifo_size <= 50)
 		output_fifo_status();
+
 	return result;
 }
 

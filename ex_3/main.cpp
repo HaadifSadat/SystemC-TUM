@@ -7,7 +7,13 @@ int sc_main(int argc, char *argv[]) {
 
 	// ############# COMPLETE THE FOLLOWING SECTION ############# //
 	// instantiate and connect the modules
+	producer prod("producer");
+	consumer cons("consumer");
+	fifo_2 fifo("fifo");
 
+	// connect ports to the FIFO channel
+	prod.prod2fifo_port(fifo);
+	cons.consum2fifo_port(fifo);
 	// ####################### UP TO HERE ####################### //
 
 	// simulation duration may be modified by command line parameter
